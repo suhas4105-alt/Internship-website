@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internship Plan Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 
+    Chosen Palette: Academic Neutral (Base: slate-50, Content: white, Primary: blue-800, Accent: amber-600, Text: slate-800)
+    Application Structure Plan: A top-level tabbed SPA. Added a new 'AI Mentor' tab.
+    Visualization & Content Choices: 
+    - Existing Charts/Tabs maintained.
+    - NEW: 'AI Mentor' Tab containing three interactive tools (Viva Prep, Concept Explainer, Task Expander).
+    - Interaction: Users select options or type queries, click a button, and view the LLM-generated response in a styled box.
+    - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-bottom-color: #1e3a8a; /* blue-800 */
+            color: #1e3a8a;
+            font-weight: 600;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out;
+        }
+        .accordion-content.open {
+            max-height: 1000px; /* arbitrary large value */
+        }
+        .phase-tab-button.active {
+            background-color: #1e3a8a;
+            color: #ffffff;
+        }
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #1e3a8a;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .markdown-prose h3 { font-weight: bold; font-size: 1.1em; margin-top: 1em; margin-bottom: 0.5em; }
+        .markdown-prose ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-prose ol { list-style-type: decimal; padding-left: 1.5em; margin-bottom: 1em; }
+        .markdown-prose p { margin-bottom: 0.8em; }
+        .markdown-prose strong { color: #1e3a8a; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white rounded-lg shadow-2xl overflow-hidden">
+        <header class="p-6 md:p-8 bg-slate-800 text-white">
+            <h1 class="text-3xl md:text-4xl font-bold">Internship Resource & Execution Plan</h1>
+            <p class="mt-2 text-slate-300">An interactive guide to the 30-day research program.</p>
+        </header>
+
+        <!-- Main Tab Navigation -->
+        <nav class="flex flex-wrap border-b border-slate-200 px-4 md:px-8">
+            <button data-tab-target="#content-overview" class="tab-button active text-sm md:text-base py-4 px-3 md:px-6 border-b-4 border-transparent hover:bg-slate-100">📋 Overview</button>
+            <button data-tab-target="#content-tracks" class="tab-button text-sm md:text-base py-4 px-3 md:px-6 border-b-4 border-transparent hover:bg-slate-100">🔬 Project Tracks</button>
+            <button data-tab-target="#content-schedule" class="tab-button text-sm md:text-base py-4 px-3 md:px-6 border-b-4 border-transparent hover:bg-slate-100">🗓️ 30-Day Schedule</button>
+            <button data-tab-target="#content-deliverables" class="tab-button text-sm md:text-base py-4 px-3 md:px-6 border-b-4 border-transparent hover:bg-slate-100">🏆 Deliverables</button>
+            <button data-tab-target="#content-ai-mentor" class="tab-button text-sm md:text-base py-4 px-3 md:px-6 border-b-4 border-transparent hover:bg-slate-100 text-purple-700">✨ AI Mentor</button>
+        </nav>
+
+        <!-- Tab Content Area -->
+        <main class="p-6 md:p-8">
+
+            <!-- == Content: Overview == -->
+            <div id="content-overview" class="data-tab-content space-y-6">
+                <p class="text-slate-600 text-lg">
+                    This internship is a 30-day intensive program focused on translating cutting-edge theory into practice across three core domains: Robotics, Smart Systems, and Power Electronics. This overview provides a high-level look at the program's structure and the distribution of projects.
+                </p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-blue-800 mb-4">Project Distribution</h2>
+                        <p class="text-slate-600 mb-4">
+                            The program features 11 distinct projects, categorized into three main research tracks. This chart shows the focus of the internship by project count.
+                        </p>
+                        <div class="chart-container">
+                            <canvas id="project-dist-chart"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-blue-800 mb-4">Core Research Tracks</h2>
+                        <div class="space-y-4">
+                            <div class="p-5 bg-slate-100 rounded-lg border-l-4 border-blue-800">
+                                <h3 class="text-xl font-semibold mb-1">🤖 Track A: Soft Robotics & Biomedical</h3>
+                                <p class="text-slate-600">Focuses on human-machine interaction, from processing biological EMG signals with AI to controlling soft, compliant prosthetic hands.</p>
+                            </div>
+                            <div class="p-5 bg-slate-100 rounded-lg border-l-4 border-amber-600">
+                                <h3 class="text-xl font-semibold mb-1">🌿 Track B: Smart Systems & Agri-Tech</h3>
+                                <p class="text-slate-600">Develops autonomous and decentralized systems, including AI-powered hydroponics and blockchain-based energy trading platforms.</p>
+                            </div>
+                            <div class="p-5 bg-slate-100 rounded-lg border-l-4 border-green-700">
+                                <h3 class="text-xl font-semibold mb-1">⚡ Track C: Power Electronics & Grid</h3>
+                                <p class="text-slate-600">Dives into high-power applications, using the Wavect controller to design and simulate advanced converters, inverters, and grid-forming controls.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- == Content: Project Tracks (Bill of Materials) == -->
+            <div id="content-tracks" class="data-tab-content hidden space-y-6">
+                <p class="text-slate-600 text-lg">
+                    Each research track has a specific set of required components. Explore the Bill of Materials for each domain below to see the hardware and software involved. Click on any track to expand its component list.
+                </p>
+                <div class="space-y-4" id="accordion-container">
+                    <!-- Accordion Item 1 -->
+                    <div class="border rounded-lg overflow-hidden">
+                        <button class="accordion-header w-full flex justify-between items-center p-5 bg-slate-100 hover:bg-slate-200">
+                            <span class="text-xl font-semibold text-blue-800">🤖 Domain I: Soft Robotics & Biomedical (4 Projects)</span>
+                            <span class="accordion-icon text-2xl text-blue-800">▼</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="p-5 border-t border-slate-200">
+                                <h4 class="text-lg font-semibold mb-2">Hardware:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li><strong>Sensors:</strong> MyoWare Muscle Sensors (v2.0) or AD8232, Ag/AgCl Electrodes, FSR (Force Sensitive Resistors).</li>
+                                    <li><strong>Controller:</strong> ESP32 Dev Module or Arduino Nano 33 BLE Sense (for onboard ML).</li>
+                                    <li><strong>Actuators:</strong> Micro Air Pumps (12V/5V), Solenoid Valves (3-way), Servo Motors.</li>
+                                    <li><strong>Materials:</strong> Ecoflex 00-30/00-50, PLA/PETG Filament, 3D Printed Bellows (TPU), Metal Bellows samples.</li>
+                                    <li><strong>Power:</strong> 12V DC Power Supply, LiPo Batteries (7.4V or 11.1V).</li>
+                                </ul>
+                                <h4 class="text-lg font-semibold mt-4 mb-2">Software/Tools:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li>Python (TensorFlow/PyTorch/Scikit-Learn).</li>
+                                    <li>SolidWorks/Fusion 360 (CAD).</li>
+                                    <li>MATLAB/Simulink (Signal processing toolbox).</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Accordion Item 2 -->
+                    <div class="border rounded-lg overflow-hidden">
+                        <button class="accordion-header w-full flex justify-between items-center p-5 bg-slate-100 hover:bg-slate-200">
+                            <span class="text-xl font-semibold text-amber-600">🌿 Domain II: Smart Systems & Agri-Tech (3 Projects)</span>
+                            <span class="accordion-icon text-2xl text-amber-600">▼</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="p-5 border-t border-slate-200">
+                                <h4 class="text-lg font-semibold mb-2">Project: Solar Integrated Hydroponics</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li><strong>Structure:</strong> PVC Pipes (NFT channels), Reservoir Tank (20L), Submersible Pump.</li>
+                                    <li><strong>Solar:</strong> 50W-100W Solar Panel, Charge Controller, Lead Acid/LiFePO4 Battery.</li>
+                                    <li><strong>Intelligence:</strong> Raspberry Pi 4, Pi Camera Module v2.</li>
+                                    <li><strong>Sensors:</strong> pH Sensor, EC Sensor, DHT11, Water Level Float Switch.</li>
+                                </ul>
+                                <h4 class="text-lg font-semibold mt-4 mb-2">Project: P2P Energy Trading & Blockchain</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li><strong>Compute Nodes:</strong> 3x Raspberry Pi (representing prosumers/consumers).</li>
+                                    <li><strong>Metering:</strong> PZEM-004T AC Energy Meters, Current Transformers (CT).</li>
+                                    <li><strong>Switching:</strong> 4-Channel Relay Module (to simulate power transfer).</li>
+                                    <li><strong>Network:</strong> Local Wi-Fi Router (isolated network).</li>
+                                    <li><strong>Software:</strong> Ethereum (Geth) or Hyperledger Fabric, Node.js, Web3.js.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Accordion Item 3 -->
+                    <div class="border rounded-lg overflow-hidden">
+                        <button class="accordion-header w-full flex justify-between items-center p-5 bg-slate-100 hover:bg-slate-200">
+                            <span class="text-xl font-semibold text-green-700">⚡ Domain III: Power Electronics & Wavect (4 Projects)</span>
+                            <span class="accordion-icon text-2xl text-green-700">▼</span>
+                        </button>
+                        <div class="accordion-content">
+                            <div class="p-5 border-t border-slate-200">
+                                <h4 class="text-lg font-semibold mb-2">Common Components for All Converters/Inverters:</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li><strong>Controller:</strong> <strong>Wavect Controller</strong> (FPGA/SoC based).</li>
+                                    <li><strong>Switches:</strong> SiC MOSFETs or IGBT modules (rated 600V+).</li>
+                                    <li><strong>Drivers:</strong> Isolated Gate Drivers (e.g., TLP250, SKYPER).</li>
+                                    <li><strong>Passives:</strong> Power Inductors, DC Link Capacitors, Current Sensors (LEM LA-55P), Voltage Sensors (LV-25P).</li>
+                                    <li><strong>Simulation:</strong> MATLAB/Simulink with HDL Coder support.</li>
+                                    <li><strong>Test Gear:</strong> Digital Oscilloscope (4-channel), Differential Probes, DC Programmable Power Supply, Rheostat (Load).</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- == Content: 30-Day Schedule == -->
+            <div id="content-schedule" class="data-tab-content hidden space-y-6">
+                <p class="text-slate-600 text-lg">
+                    The 30-day program is divided into four distinct phases, from foundational theory to final validation. Use the tabs below to explore the detailed schedule for each phase. The table shows the parallel activities for all three research tracks.
+                </p>
+                <!-- Nested Phase Tabs -->
+                <nav class="flex flex-wrap -mb-px" id="phase-tab-container">
+                    <button data-phase-target="#content-phase-1" class="phase-tab-button active text-sm md:text-base font-medium py-3 px-5 rounded-t-lg border-b-2 border-transparent">Phase 1 (Days 1-7)</button>
+                    <button data-phase-target="#content-phase-2" class="phase-tab-button text-sm md:text-base font-medium py-3 px-5 rounded-t-lg border-b-2 border-transparent text-slate-500 hover:bg-slate-100">Phase 2 (Days 8-15)</button>
+                    <button data-phase-target="#content-phase-3" class="phase-tab-button text-sm md:text-base font-medium py-3 px-5 rounded-t-lg border-b-2 border-transparent text-slate-500 hover:bg-slate-100">Phase 3 (Days 16-23)</button>
+                    <button data-phase-target="#content-phase-4" class="phase-tab-button text-sm md:text-base font-medium py-3 px-5 rounded-t-lg border-b-2 border-transparent text-slate-500 hover:bg-slate-100">Phase 4 (Days 24-30)</button>
+                </nav>
+                <div class="border border-slate-200 rounded-b-lg rounded-tr-lg">
+                    <!-- Phase 1 Content -->
+                    <div id="content-phase-1" class="data-phase-content p-4">
+                        <h3 class="text-xl font-bold text-blue-800 mb-4">Phase 1: Orientation, Theory & Simulation</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[800px] text-sm text-left">
+                                <thead class="bg-slate-100 text-slate-700 uppercase">
+                                    <tr>
+                                        <th class="p-3 w-1/12">Day</th>
+                                        <th class="p-3 w-1/12">Schedule</th>
+                                        <th class="p-3 w-1/4">Track A (Robotics/EMG)</th>
+                                        <th class="p-3 w-1/4">Track B (Smart Systems)</th>
+                                        <th class="p-3 w-1/4">Track C (Power Electronics)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <tr>
+                                        <td class="p-3 font-medium">1</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Lab Safety & Project Assignment.<br>Lit Review: EMG signal characteristics.</td>
+                                        <td class="p-3">Lab Safety & Project Assignment.<br>Lit Review: Blockchain basics / Hydroponics.</td>
+                                        <td class="p-3">Lab Safety (High Voltage) & Wavect Intro.<br>Lit Review: Converter topologies & d,q theory.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">2</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Software Setup: Python, TensorFlow.<br>Study: Soft actuator physics.</td>
+                                        <td class="p-3">Setup: Raspberry Pi OS, Node.js env.<br>Study: Solar sizing calculation.</td>
+                                        <td class="p-3">Setup: MATLAB/Simulink & FPGA tools.<br>Study: Wavect Interface & Pin mapping.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">3</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">CAD Design: Molds for soft fingers.<br>CAD Design: Metal vs Rubber Bellows mounts.</td>
+                                        <td class="p-3">Architecture Design: Blockchain ledger.<br>CAD Design: Hydroponic frame structure.</td>
+                                        <td class="p-3">Math Modeling: Buck-Boost state space eq.<br>Math Modeling: Inverter LCL filter sizing.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">4</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Simulation: FEA of bellows.<br>Simulation: EMG data acquisition code.</td>
+                                        <td class="p-3">Coding: Smart Contracts (Solidity) basics.<br>Coding: Image processing (OpenCV) setup.</td>
+                                        <td class="p-3">Simulation: Open loop Buck-Boost.<br>Simulation: Open loop Inverter.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">5</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Data Collection: Recording raw EMG signals.<br>Signal Processing: FFT, Filtering.</td>
+                                        <td class="p-3">Bench Setup: Networking R-Pis.<br>Solar: Testing panel output & charging.</td>
+                                        <td class="p-3">Simulation: Designing PI controllers.<br>Simulation: Tuning PI for Charging/Discharging.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">6</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">3D Printing: Start printing molds/bellows.<br>ML: Pre-processing dataset for training.</td>
+                                        <td class="p-3">Assembly: Cutting PVC for hydroponics.<br>Coding: Blockchain transaction logic.</td>
+                                        <td class="p-3">Simulation: MPPT Algorithm (P&O) logic.<br>Simulation: Grid Forming (Droop) logic.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">7</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Review: Simulation Results Presentation.<br>Casting: Pouring Ecoflex into molds.</td>
+                                        <td class="p-3">Review: System Architecture Review.<br>Assembly: Mounting sensors on frame.</td>
+                                        <td class="p-3">Review: Simulation Results Check.<br>Procurement Check: Component inventory.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Phase 2 Content -->
+                    <div id="content-phase-2" class="data-phase-content hidden p-4">
+                        <h3 class="text-xl font-bold text-blue-800 mb-4">Phase 2: Hardware Implementation & Prototyping</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[800px] text-sm text-left">
+                                <thead class="bg-slate-100 text-slate-700 uppercase">
+                                    <tr>
+                                        <th class="p-3 w-1/12">Day</th>
+                                        <th class="p-3 w-1/12">Schedule</th>
+                                        <th class="p-3 w-1/4">Track A (Robotics/EMG)</th>
+                                        <th class="p-3 w-1/4">Track B (Smart Systems)</th>
+                                        <th class="p-3 w-1/4">Track C (Power Electronics)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <tr>
+                                        <td class="p-3 font-medium">8</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">De-molding soft fingers/actuators.<br>Pneumatic Circuit: Connecting pumps/valves.</td>
+                                        <td class="p-3">Coding: AI Model for plant disease detection.<br>Electronics: Interfacing pH/EC sensors to Pi.</td>
+                                        <td class="p-3">PCB/Breadboard: Gate Driver circuit assembly.<br>PCB/Breadboard: Sensor circuit (V/I) assembly.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">9</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Testing: Bellows inflation/deflection tests.<br>Data: Comparative logging (Rubber vs Metal).</td>
+                                        <td class="p-3">Coding: Energy trading logic (Node.js).<br>Hardware: Interfacing PZEM meters to Pi.</td>
+                                        <td class="p-3">Hardware: Mounting Heat sinks & Switches.<br>Hardware: Winding Inductors / Connection.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">10</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">ML: Training Neural Network (Gesture).<br>ML: Model validation & optimization.</td>
+                                        <td class="p-3">Integration: Camera mounting & calibration.<br>Integration: Solar charge controller wiring.</td>
+                                        <td class="p-3">FPGA: Flashing Wavect with Blink/PWM test.<br>FPGA: Testing ADC reading from sensors.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">11</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Integration: Arduino + Pneumatics + Soft Hand.<br>Code: Writing control logic for valves.</td>
+                                        <td class="p-3">Testing: Blockchain private network deployment.<br>Testing: Water pump automation logic.</td>
+                                        <td class="p-3">Testing: Open loop Boost test (Low Voltage).<br>Testing: Open loop Inverter test (Low Voltage).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">12</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Integration: Connecting EMG sensors to Controller.<br>Testing: Real-time signal visualization.</td>
+                                        <td class="p-3">Integration: Full P2P Bench wiring.<br>Integration: Full Hydroponics wiring.</td>
+                                        <td class="p-3">Integration: Closed loop Current Control (PI).<br>Integration: MPPT Code implementation.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">13</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Mid-Term Demo: Individual Component demo.<br>Refinement based on feedback.</td>
+                                        <td class="p-3">Mid-Term Demo: Sub-system demo.<br>Refinement based on feedback.</td>
+                                        <td class="p-3">Mid-Term Demo: Low power switching demo.<br>Refinement based on feedback.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">14</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Code: Real-time inference (ML model on chip).<br>Hardware: Mounting hand to prosthetic socket.</td>
+                                        <td class="p-3">Coding: Frontend for Energy Dashboard.<br>Coding: Frontend for Plant Monitor.</td>
+                                        <td class="p-3">Coding: d,q frame transformation logic.<br>Coding: PLL (Phase Locked Loop) logic.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">15</td>
+                                        <td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Experiment: Comparison data gathering (Bellows).<br>Experiment: Grip strength testing.</td>
+                                        <td class="p-3">Experiment: Running P2P transactions.<br>Experiment: Image classification tests.</td>
+                                        <td class="p-3">Hardware: Increasing Bus Voltage (Safety Check).<br>Hardware: Thermal analysis of switches.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Phase 3 Content -->
+                    <div id="content-phase-3" class="data-phase-content hidden p-4">
+                        <h3 class="text-xl font-bold text-blue-800 mb-4">Phase 3: Integration & Advanced Control</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[800px] text-sm text-left">
+                                <thead class="bg-slate-100 text-slate-700 uppercase">
+                                    <tr>
+                                        <th class="p-3 w-1/12">Day</th>
+                                        <th class="p-3 w-1/12">Schedule</th>
+                                        <th class="p-3 w-1/4">Track A (Robotics/EMG)</th>
+                                        <th class="p-3 w-1/4">Track B (Smart Systems)</th>
+                                        <th class="p-3 w-1/4">Track C (Power Electronics)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <tr>
+                                        <td class="p-3 font-medium">16</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Control: Implementing PID for pressure control.<br>Control: Mapping gestures to specific grips.</td>
+                                        <td class="p-3">Optimization: Improving AI accuracy.<br>Optimization: Reducing Blockchain latency.</td>
+                                        <td class="p-3">Control: Bidirectional Power Flow test.<br>Control: Charging vs Discharging mode switch.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">17</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Testing: Subject trials (User controls hand).<br>Analysis: Latency measurement (EMG -> Action).</td>
+                                        <td class="p-3">Testing: Long-duration Solar run.<br>Analysis: Energy efficiency analysis.</td>
+                                        <td class="p-3">Control: MPPT dynamic tracking test.<br>Analysis: Converter Efficiency calculation.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">18</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Troubleshooting: Noise reduction in EMG.<br>Troubleshooting: Leaks in pneumatic system.</td>
+                                        <td class="p-3">Troubleshooting: Sensor calibration.<br>Troubleshooting: Network dropouts.</td>
+                                        <td class="p-3">Troubleshooting: EMI/Noise issues.<br>Troubleshooting: Gate driver ringing.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">19</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Advanced: Adding tactile feedback (optional).<br>Advanced: Improving gesture library.</td>
+                                        <td class="p-3">Advanced: Smart contract automation.<br>Advanced: Alert system (Email/SMS).</td>
+                                        <td class="p-3">Inverter: Generating Sine WM (SPWM).<br>Inverter: Closing the loop (Voltage Control).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">20</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Data: Compiling Bellows stress/strain data.<br>Drafting: Technical Paper (Methodology).</td>
+                                        <td class="p-3">Data: Logging transaction speeds/costs.<br>Drafting: Technical Paper (System Arch).</td>
+                                        <td class="p-3">Data: Capturing waveforms (V, I, THD).<br>Drafting: Technical Paper (Control Strategy).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">21</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Full System Run: Continuous operation test.<br>Optimization: Code cleanup.</td>
+                                        <td class="p-3">Full System Run: 24hr cycle simulation.<br>Optimization: UI cleanup.</td>
+                                        <td class="p-3">Full System Run: Rated Power test.<br>Optimization: Controller Gain Tuning.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">22</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Simulation: Droop Control (Inverter team only).<br>Validation: Cross-checking with simulation.</td>
+                                        <td class="p-3">--<br>--</td>
+                                        <td class="p-3">Simulation: Droop Control verification.<br>Implementation: Grid Forming logic on Wavect.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">23</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Final Hardware Polish (Cable management).<br>Buffer time for broken components.</td>
+                                        <td class="p-3">Final Hardware Polish (Enclosures).<br>Buffer time for broken components.</td>
+                                        <td class="p-3">Final Hardware Polish (Safety shielding).<br>Buffer time for blown fuses/switches.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Phase 4 Content -->
+                    <div id="content-phase-4" class="data-phase-content hidden p-4">
+                        <h3 class="text-xl font-bold text-blue-800 mb-4">Phase 4: Analysis, Reporting & Presentation</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[600px] text-sm text-left">
+                                <thead class="bg-slate-100 text-slate-700 uppercase">
+                                    <tr>
+                                        <th class="p-3 w-1/6">Day</th>
+                                        <th class="p-3 w-1/6">Schedule</th>
+                                        <th class="p-3 w-2/3">All Tracks Activity</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200">
+                                    <tr>
+                                        <td class="p-3 font-medium">24</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Consolidated Data Analysis: Plotting graphs.<br>Interpretation of results.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">25</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Technical Paper Writing: Results and Discussion.<br>Technical Paper Writing: Conclusion and References.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">26</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Poster/PPT Creation: Designing slides.<br>Creating demo videos of working projects.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">27</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Internal Mock Presentation to Mentors.<br>Feedback incorporation and slide corrections.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">28</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Final Documentation: Organizing code, schematics.<br>Lab Cleanup: Organizing components and workspace.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">29</td><td class="p-3">AM<br>PM</td>
+                                        <td class="p-3">Final Presentation: Project demonstration to Professors.<br>Final Presentation: Q&A and Evaluation.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium">30</td><td class="p-3">All Day</td>
+                                        <td class="p-3">Certification Ceremony, Farewell, and Final Report Submission.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- == Content: Deliverables == -->
+            <div id="content-deliverables" class="data-tab-content hidden space-y-6">
+                <p class="text-slate-600 text-lg">
+                    The program culminates in tangible outcomes that demonstrate the interns' learning and contributions. All interns are expected to complete the following by Day 30.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-100 p-6 rounded-lg">
+                        <h3 class="text-2xl font-bold text-blue-800 mb-3">🏆 Working Prototypes</h3>
+                        <p class="text-slate-600">
+                            Functional hardware deliverables demonstrating the core concepts of each project track.
+                        </p>
+                        <ul class="list-disc list-inside mt-3 space-y-1 text-slate-600">
+                            <li>EMG-controlled Soft Prosthetic Hand.</li>
+                            <li>Solar-powered Hydroponics Module.</li>
+                            <li>P2P Energy Trading Test Bench.</li>
+                            <li>Wavect-controlled Converters/Inverters.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-slate-100 p-6 rounded-lg">
+                        <h3 class="text-2xl font-bold text-blue-800 mb-3">📄 Research & Documentation</h3>
+                        <p class="text-slate-600">
+                            Comprehensive documentation and analysis suitable for academic review.
+                        </p>
+                        <ul class="list-disc list-inside mt-3 space-y-1 text-slate-600">
+                            <li>Technical Paper (e.g., Bellows Comparison, Droop Control Analysis).</li>
+                            <li>Final Presentation & Poster.</li>
+                            <li>Complete project documentation (code, CAD files, schematics).</li>
+                            <li>Detailed daily logbook.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+             <!-- == Content: AI Mentor == -->
+            <div id="content-ai-mentor" class="data-tab-content hidden space-y-8">
+                <div class="bg-purple-50 border-l-4 border-purple-700 p-6 rounded-r-lg">
+                    <h2 class="text-2xl font-bold text-purple-800 mb-2">✨ Your AI Research Mentor</h2>
+                    <p class="text-slate-700">
+                        Powered by the Gemini API, this section is designed to assist interns with technical concepts, viva preparation, and daily planning. Select a tool below to get started.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    <!-- Tool 1: Viva Prep -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col">
+                        <div class="mb-4">
+                            <span class="text-3xl">🎓</span>
+                            <h3 class="text-xl font-bold text-slate-800 mt-2">Viva Board Simulator</h3>
+                            <p class="text-sm text-slate-500 mt-1">Prepare for your final defense with AI-generated tough questions.</p>
+                        </div>
+                        <div class="flex-grow space-y-4">
+                            <label class="block text-sm font-medium text-slate-700">Select Your Track</label>
+                            <select id="viva-track-select" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="Track A: Soft Robotics & Biomedical (EMG, Prosthetics)">Track A: Soft Robotics & Biomedical</option>
+                                <option value="Track B: Smart Systems & Agri-Tech (IoT, Blockchain)">Track B: Smart Systems & Agri-Tech</option>
+                                <option value="Track C: Power Electronics & Grid (Wavect, Inverters)">Track C: Power Electronics & Grid</option>
+                            </select>
+                            <button onclick="generateVivaQuestions()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2">
+                                <span>Generate Questions</span>
+                                <span>✨</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tool 2: Concept Simplifier -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col">
+                        <div class="mb-4">
+                            <span class="text-3xl">🧠</span>
+                            <h3 class="text-xl font-bold text-slate-800 mt-2">Concept Simplifier</h3>
+                            <p class="text-sm text-slate-500 mt-1">Stuck on jargon? Get a simple explanation with analogies.</p>
+                        </div>
+                        <div class="flex-grow space-y-4">
+                            <label class="block text-sm font-medium text-slate-700">Enter Term or Concept</label>
+                            <input type="text" id="concept-input" placeholder="e.g., Droop Control, Kalman Filter" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <button onclick="simplifyConcept()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2">
+                                <span>Explain Like I'm 5</span>
+                                <span>✨</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tool 3: Daily Task Expander -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 flex flex-col">
+                        <div class="mb-4">
+                            <span class="text-3xl">✅</span>
+                            <h3 class="text-xl font-bold text-slate-800 mt-2">Daily Task Expander</h3>
+                            <p class="text-sm text-slate-500 mt-1">Get a detailed minute-by-minute checklist for any schedule day.</p>
+                        </div>
+                        <div class="flex-grow space-y-4">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-700">Day #</label>
+                                    <input type="number" id="task-day-input" placeholder="1-30" min="1" max="30" class="w-full p-2 border border-slate-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-700">Track</label>
+                                    <select id="task-track-select" class="w-full p-2 border border-slate-300 rounded-md">
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button onclick="expandTasks()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2">
+                                <span>Get Detailed Plan</span>
+                                <span>✨</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Area -->
+                <div id="ai-output-container" class="hidden mt-8 bg-slate-100 rounded-xl p-6 border border-slate-200 min-h-[200px] relative">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-300 pb-2">
+                        <h3 class="text-lg font-semibold text-slate-700 flex items-center gap-2">
+                            <span id="ai-output-title">AI Response</span>
+                        </h3>
+                        <button onclick="document.getElementById('ai-output-container').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">✕ Close</button>
+                    </div>
+                    <div id="ai-loading" class="hidden absolute inset-0 flex items-center justify-center bg-slate-100 bg-opacity-80 z-10">
+                        <div class="flex flex-col items-center">
+                            <div class="spinner mb-3"></div>
+                            <p class="text-slate-600 font-medium">Consulting Gemini...</p>
+                        </div>
+                    </div>
+                    <div id="ai-content" class="markdown-prose text-slate-700">
+                        <!-- AI content goes here -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- API Configuration ---
+        const apiKey = ""; // Injected at runtime
+
+        async function callGeminiAPI(prompt) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            };
+
+            const outputContainer = document.getElementById('ai-output-container');
+            const loadingSpinner = document.getElementById('ai-loading');
+            const contentDiv = document.getElementById('ai-content');
+
+            outputContainer.classList.remove('hidden');
+            loadingSpinner.classList.remove('hidden');
+            contentDiv.innerHTML = '';
+
+            // Scroll to output
+            outputContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Retry logic with exponential backoff
+            let retries = 0;
+            const maxRetries = 3;
+            const delays = [1000, 2000, 4000];
+
+            while (retries <= maxRetries) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+                    
+                    // Render Markdown
+                    contentDiv.innerHTML = marked.parse(text);
+                    loadingSpinner.classList.add('hidden');
+                    return; // Success
+
+                } catch (error) {
+                    console.error(`Attempt ${retries + 1} failed:`, error);
+                    if (retries === maxRetries) {
+                        loadingSpinner.classList.add('hidden');
+                        contentDiv.innerHTML = `<p class="text-red-600">Error connecting to AI Mentor. Please try again later.</p>`;
+                        return;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delays[retries]));
+                    retries++;
+                }
+            }
+        }
+
+        // --- Tool Functions ---
+
+        function generateVivaQuestions() {
+            const track = document.getElementById('viva-track-select').value;
+            const title = document.getElementById('ai-output-title');
+            title.textContent = "Generated Viva Questions";
+            title.innerHTML = `<span class="text-purple-600 mr-2">🎓</span> Viva Prep: ${track.split(':')[0]}`;
+
+            const prompt = `You are a strict engineering professor conducting a viva voce (oral defense) for an intern. 
+            They have been working on: "${track}". 
+            Generate 5 challenging technical questions they might be asked. 
+            For each question, provide a "Hint" in a collapsible detail or just a brief bullet point. 
+            Format the output in clean HTML using <ul> and <li> tags or Markdown. Focus on the specific technologies mentioned in the track name (e.g. EMG, Blockchain, Wavect).`;
+
+            callGeminiAPI(prompt);
+        }
+
+        function simplifyConcept() {
+            const term = document.getElementById('concept-input').value.trim();
+            if (!term) return;
+
+            const title = document.getElementById('ai-output-title');
+            title.textContent = "Concept Explanation";
+            title.innerHTML = `<span class="text-blue-600 mr-2">🧠</span> Explaining: "${term}"`;
+
+            const prompt = `Explain the technical engineering concept "${term}" to an undergraduate student. 
+            1. Start with a formal 1-sentence definition.
+            2. Provide a "Like I'm 5" analogy to explain how it works.
+            3. Explain why it is important in the context of Robotics, Power Electronics, or Smart Systems.
+            Format in Markdown.`;
+
+            callGeminiAPI(prompt);
+        }
+
+        function expandTasks() {
+            const day = document.getElementById('task-day-input').value;
+            const track = document.getElementById('task-track-select').value;
+            if (!day) return;
+
+            const title = document.getElementById('ai-output-title');
+            title.innerHTML = `<span class="text-amber-600 mr-2">✅</span> Detailed Plan: Day ${day}, Track ${track}`;
+
+            const prompt = `You are a laboratory supervisor. Create a detailed, hour-by-hour work checklist for an intern for Day ${day} of their internship.
+            They are in Track ${track} (A=Robotics, B=Smart Systems, C=Power Electronics).
+            
+            Based on a standard 9am-5pm schedule:
+            1. Break down the day into 2-hour blocks.
+            2. Add specific "Safety Checks" relevant to their track (e.g., high voltage for Track C, chemical safety for B).
+            3. Suggest one "Pro Tip" for debugging or efficiency.
+            Format in Markdown.`;
+
+            callGeminiAPI(prompt);
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Main Tab Logic ---
+            const mainTabs = document.querySelectorAll('.tab-button');
+            const mainContents = document.querySelectorAll('.data-tab-content');
+
+            mainTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = document.querySelector(tab.dataset.tabTarget);
+
+                    mainContents.forEach(content => content.classList.add('hidden'));
+                    target.classList.remove('hidden');
+
+                    mainTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                });
+            });
+
+            // --- Accordion Logic ---
+            const accordions = document.querySelectorAll('.accordion-header');
+            accordions.forEach(accordion => {
+                accordion.addEventListener('click', () => {
+                    const content = accordion.nextElementSibling;
+                    const icon = accordion.querySelector('.accordion-icon');
+                    
+                    content.classList.toggle('open');
+                    
+                    if (content.classList.contains('open')) {
+                        icon.textContent = '▲';
+                    } else {
+                        icon.textContent = '▼';
+                    }
+                });
+            });
+
+            // --- Nested Phase Tab Logic ---
+            const phaseTabs = document.querySelectorAll('.phase-tab-button');
+            const phaseContents = document.querySelectorAll('.data-phase-content');
+
+            phaseTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = document.querySelector(tab.dataset.phaseTarget);
+
+                    phaseContents.forEach(content => content.classList.add('hidden'));
+                    target.classList.remove('hidden');
+
+                    phaseTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                });
+            });
+
+            // --- Chart.js Doughnut Chart ---
+            const ctx = document.getElementById('project-dist-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Track A: Robotics/Biomed', 'Track B: Smart Systems', 'Track C: Power Electronics'],
+                    datasets: [{
+                        label: 'Projects',
+                        data: [4, 3, 4],
+                        backgroundColor: [
+                            '#1e3a8a', // blue-800
+                            '#d97706', // amber-600
+                            '#15803d'  // green-700
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed + ' projects';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            // Set default open tabs
+            document.querySelector('.tab-button[data-tab-target="#content-overview"]').click();
+            document.querySelector('.phase-tab-button[data-phase-target="#content-phase-1"]').click();
+        });
+    </script>
+
+</body>
+</html>
